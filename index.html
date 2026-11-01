@@ -6,8 +6,16 @@
 <title>Papo Fantasma</title>
 <script src="/socket.io/socket.io.js"></script>
 <style>
-  /* COR PRINCIPAL - muda aqui se quiser */
   :root{ --cor:#8a5cff; }
+  /* BLOQUEIO DE CÓPIA */
+    * {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
   body{ 
     margin:0; font-family: monospace; height:100vh; display:flex; flex-direction:column;
     background: #0a0a0f url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=1000') no-repeat center center;
@@ -15,27 +23,38 @@
     color:#e0e0ff;
   }
   .header{ padding:15px; text-align:center; border-bottom:1px solid #222; background:#11111af2; backdrop-filter: blur(5px); }
-  .header img{ height:40px; margin-bottom:5px; } /* SEU LOGO AQUI */
+  .header img{ height:40px; margin-bottom:5px; }
   .header h1{ margin:0; letter-spacing:3px; } .header h1 span{ color:var(--cor); text-shadow:0 0 15px var(--cor); }
   #login{ margin:auto; background:#15151fF2; padding:30px; border-radius:20px; border:1px solid #333; width:85%; max-width:320px; text-align:center; }
   #login input, #login button{ width:100%; padding:12px; margin:8px 0; border-radius:10px; border:none; box-sizing:border-box; }
   #login input{ background:#0a0a0f; color:white; border:1px solid #444; }
   #login button{ background:var(--cor); color:white; font-weight:bold; cursor:pointer; box-shadow:0 0 15px var(--cor); }
   #chat{ display:none; flex:1; flex-direction:column; background: #0a0a0fB3; }
-  #messages{ flex:1; overflow-y:auto; padding:15px; }
-  .msg{ background:#1c1c2be6; padding:12px 16px; border-radius:14px; margin:10px 0; max-width:80%; border-left:4px solid var(--cor); backdrop-filter: blur(3px); }
-  .msg.fading{ opacity:0.35; filter: blur(1px); transform: scale(0.98); transition: 0.5s; } /* transparente perto de apagar */
+  #messages{ flex:1; overflow-y:auto; padding:15px; position: relative; }
+  .msg{ background:#1c1c2be6; padding:12px 16px; border-radius:14px; margin:10px 0; max-width:80%; border-left:4px solid var(--cor); backdrop-filter: blur(3px); position: relative; overflow: hidden; }
+  .msg::after{ content: attr(data-watermark); position: absolute; right: 10px; bottom: 5px; font-size: 8px; opacity: 0.15; pointer-events: none; }
+  .msg.fading{ opacity:0.35; filter: blur(1px); transform: scale(0.98); transition: 0.5s; }
   .msg b{ color:var(--cor); }
   #inputArea{ display:flex; padding:12px; background:#11111a; gap:8px; }
   #inputArea input{ flex:1; padding:14px; border-radius:25px; border:1px solid #333; background:#0a0a0f; color:white; }
   #inputArea button{ border-radius:25px; border:none; background:var(--cor); color:white; padding:0 22px; font-size:18px; }
   @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
   .ghost{ font-size:50px; animation: float 3s infinite ease-in-out; display:inline-block; filter: drop-shadow(0 0 10px var(--cor)); }
+  
+  /* QUANDO SAI DA ABA, BORRA TUDO */
+  body.blurred #messages{ filter: blur(15px) brightness(0.2); pointer-events: none; }
+  body.blurred::before{
+    content: "👻 Fantasma fugiu... volta pra ver";
+    position: fixed; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 9999; background: #111; padding: 20px 25px;
+    border-radius: 15px; border: 1px solid var(--cor);
+    text-align: center;
+  }
 </style>
 </head>
 <body>
 <div class="header">
-  <!-- COLOCA SEU LOGO AQUI: troca o src abaixo -->
   <img src="https://i.imgur.com/QkB4j1O.png" onerror="this.style.display='none'" alt="logo">
   <h1>👻 <span>PAPO FANTASMA</span></h1>
   <div style="font-size:10px; opacity:0.6; letter-spacing:2px">MENSAGENS DESAPARECEM SOZINHAS</div>
@@ -92,7 +111,7 @@ socket.on('errorMsg', (t)=> alert(t));
 function addMsg(m){
   const div = document.createElement('div');
   div.className = 'msg';
-  // SE TEM MAIS DE 20 HORAS, JÁ FICA TRANSPARENTE
+  div.setAttribute('data-watermark', nickAtual); // MARCA D'ÁGUA COM NICK
   if(Date.now() - m.createdAt > 20*60*60*1000) div.classList.add('fading');
   div.innerHTML = `<b>${m.nick}:</b> ${m.text}<div style="font-size:9px; opacity:0.5; margin-top:5px">${new Date(m.createdAt).toLocaleTimeString()} • some em 24h</div>`;
   document.getElementById('messages').appendChild(div);
@@ -106,12 +125,28 @@ function enviar(){
 }
 document.getElementById('text').addEventListener('keydown', e=>{ if(e.key==='Enter') enviar(); });
 
-// Auto-preenche se vier link
 window.onload = ()=>{
   const p = new URLSearchParams(window.location.search);
   if(p.get('sala')) document.getElementById('room').value = p.get('sala');
   if(p.get('senha')) document.getElementById('password').value = p.get('senha');
 };
+
+// --- ANTI-PRINT ---
+document.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('keydown', e => {
+  if (e.key === 'PrintScreen' || (e.ctrlKey && (e.key.toLowerCase() === 'p' || e.key.toLowerCase() === 's' || e.key.toLowerCase() === 'u' || e.key.toLowerCase() === 'c'))) {
+    e.preventDefault();
+    document.body.classList.add('blurred');
+    setTimeout(() => document.body.classList.remove('blurred'), 2000);
+    return false;
+  }
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) document.body.classList.add('blurred');
+  else document.body.classList.remove('blurred');
+});
+window.addEventListener('blur', () => document.body.classList.add('blurred'));
+window.addEventListener('focus', () => document.body.classList.remove('blurred'));
 </script>
 </body>
 </html>
